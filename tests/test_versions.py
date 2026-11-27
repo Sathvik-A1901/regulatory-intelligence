@@ -90,3 +90,33 @@ def test_harness_reports_stale_rate_ablation():
     assert report["recall@5"] == 1.0
     assert report["stale_rate@5"] == 0.0
     assert report["stale_rate@5_without_asof_filter"] > 0.0
+
+
+def _one_block_version(text: str, start: date, end: date | None) -> SectionVersion:
+    from ingest.metadata import Block, DocKind
+    return SectionVersion(title=12, part="1026", identifier="Supplement I to Part 1026", heading="Supplement I",
+                          kind=DocKind.INTERPRETATION, valid_from=start, valid_to=end,
+                          blocks=[Block(path=["1"], citation="Comment 4(b)-1", text=text)])
+
+
+def test_retypeset_dash_is_not_a_supersession():
+    # Live Supplement I: on 2023-03-20 eCFR replaced ' - ' with '—' throughout without amending
+    # anything; ~290 commentary chunks were being closed as superseded.
+    d1, d2 = date(2022, 1, 1), date(2023, 3, 20)
+    chunks = chunk_versions([
+        _one_block_version("Charges - examples. Fees for ______ are finance charges.", d1, d2),
+        _one_block_version("Charges—examples. Fees for ___ are finance charges.", d2, None),
+    ])
+    assert len(chunks) == 1
+    assert chunks[0].valid_from == d1 and chunks[0].valid_to is None and chunks[0].superseded_by is None
+    assert chunks[0].text == "Charges - examples. Fees for ______ are finance charges."  # stored as published
+
+
+def test_real_wording_change_still_supersedes():
+    d1, d2 = date(2021, 1, 1), date(2022, 4, 1)
+    chunks = chunk_versions([
+        _one_block_version("The LIBOR index applies.", d1, d2),
+        _one_block_version("The SOFR index applies.", d2, None),
+    ])
+    old, new = sorted(chunks, key=lambda c: c.valid_from)
+    assert old.valid_to == d2 and old.superseded_by == new.chunk_id

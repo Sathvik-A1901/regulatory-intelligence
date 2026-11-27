@@ -25,7 +25,7 @@ LLM for later phases: Anthropic API (not used yet).
 - evals/: harness.py (recall@k, MRR, stale-rate with/without as-of filter),
   run_suite.py (`--smoke` for CI, `--min-recall` gate), golden/golden.yaml (16 DRAFT
   items, none verified), golden/smoke.yaml (CI)
-- .github/workflows/evals.yml: ruff, pytest (28 tests), smoke eval gate
+- .github/workflows/evals.yml: ruff, pytest (36 tests), smoke eval gate
 
 ## First live run (2026-11-26): 1026.19 + 1026.43
 - `python -m ingest.flow --only 1026.19 --only 1026.43`: 15 versions, 18 fetches, 0 failures,
@@ -37,14 +37,33 @@ LLM for later phases: Anthropic API (not used yet).
   2. Pre-2022 versions write the heading dash as ASCII " - " not "—", which broke packed
      markers ((c)(5)(A) instead of (c)(5)(i)(A)) and created ~190 spurious supersessions
      on non-substantive version dates. Chunk count fell 631 -> 441 after the fix.
-- Not yet run: Supplement I and appendices on live XML, Regs B and E.
+- Not yet run: appendices on live XML, Regs B and E.
 - Observed: very short list-item chunks ("Prepaid interest;") exist; consider merging
   into parent at index time if they hurt retrieval.
 - Golden set citations must still be hand-checked in eCFR before any number is published.
 
+## Supplement I live run (2026-11-27)
+- 77 versions (84 eCFR rows; pre-window dates collapse onto 2017-01-03), 0 failures,
+  6212 chunks (5548 in force today), no duplicate in-force citations.
+- Fixed in ingest/parse.py (regression tests in tests/test_parse.py):
+  1. Introduction cites as "Comment I-1" (was "Supplement I to Part 1026-1").
+  2. Appendix commentary gets its own anchor ("Comment app. K(b)(9)-1"); it used to
+     inherit the last section's anchor.
+  3. Comment levels use a stack: "1. / A. / B." no longer nests as -1.A.B.
+  4. Italic "<I>1.</I>" is the 4th level (-4.iv.A.1), not a new comment 1. With 3,
+     this cut duplicate citations in the current version from 56 to 8.
+  5. Packed comments "1. <I>Effective date.</I> i. <I>General.</I> ..." split into -1 and
+     -1.i (163 in the current version), incl. one italic run spanning both headings.
+- Fixed in ingest/chunk.py: change comparison normalizes dash variants and blank-line
+  underscores. eCFR retypeset ' - ' to '—' on 2023-03-20 (non-substantive) and closed
+  ~290 chunks as superseded; stored text is unchanged.
+- Remaining duplicate citations (8) and 16/650 unresolved cross-references are errors in
+  the eCFR source text (e.g. two "2." under 11(c), two "i." under 9(c)(2)(v)-13, missing
+  "A." under 36(a)-5.iv); chunker concatenates same-cited text.
+- Still on non-substantive dates: 89 real wording edits (e.g. LIBOR -> SOFR on 2022-04-01).
+
 ## Next steps
-1. Live run on Supplement I to Part 1026 and one appendix (commentary parser is the
-   least tested path), then all of Reg Z.
+1. Live run on one appendix (e.g. Appendix H model forms), then all of Reg Z.
 2. Week 2: full ingestion + published parse-quality report.
 3. Week 3: dense (pgvector) + BM25 (OpenSearch) hybrid with RRF, cross-encoder rerank,
    ablation table. Keep every retriever taking a RetrievalFilter.

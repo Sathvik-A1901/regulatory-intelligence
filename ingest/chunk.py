@@ -20,7 +20,20 @@ from ingest.metadata import AccessClass, Block, Chunk, SectionVersion, make_chun
 MAX_WORDS = 300  # long paragraphs are split on sentence boundaries above this
 
 
+DASH_VARIANTS = re.compile(r"\s*(?:—|–|\s-\s|--)\s*")
+BLANK_LINE = re.compile(r"_{2,}")
+
+
 def _norm(text: str) -> str:
+    """Comparison key for 'did this paragraph's text change between versions?'.
+
+    eCFR re-typesets old text without amending it: on 2023-03-20 every ' - ' in
+    Supplement I became '—' on a non-substantive date. Treating that as a change would
+    close ~290 commentary chunks as superseded when nothing was amended. Only the
+    comparison is normalized; the stored text is left exactly as published.
+    """
+    text = DASH_VARIANTS.sub("—", text)
+    text = BLANK_LINE.sub("__", text)  # fill-in blanks on model forms vary in length
     return re.sub(r"\s+", " ", text).strip().lower()
 
 

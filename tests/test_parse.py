@@ -126,3 +126,79 @@ def test_ascii_hyphen_heading_dash_in_older_versions():
 def test_hyphen_inside_body_is_not_a_heading_dash():
     blocks = _section("<P>(a) <I>Scope.</I> This applies to a non-recourse loan.</P>")
     assert blocks[0].text == "This applies to a non-recourse loan."
+
+
+# ---------------------------------------------------------------- regressions from the live Supplement I run
+
+def _commentary(body: str):
+    xml = (f'<DIV9 N="Supplement I to Part 1026" TYPE="APPENDIX">'
+           f'<HEAD>Supplement I to Part 1026—Official Interpretations</HEAD>{body}</DIV9>')
+    return parse_unit(xml, "Supplement I to Part 1026", "appendix")[2]
+
+
+def test_introduction_comments_cite_as_comment_i():
+    blocks = _commentary("<HD1>Introduction</HD1><P>1. <I>Official status.</I> This commentary ...</P>"
+                         "<HD1>Subpart A—General</HD1>"
+                         "<HD2>Section 1026.1—Authority</HD2><HD3>1(c) Coverage</HD3><P>1. Text.</P>")
+    assert [b.citation for b in blocks] == ["Comment I-1", "Comment 1(c)-1"]
+
+
+def test_appendix_commentary_gets_its_own_anchor():
+    # Live XML: comments to the appendices used to inherit the last section's anchor.
+    blocks = _commentary(
+        "<HD2>Section 1026.62—Disclosures</HD2><HD3>62(a) General</HD3><P>1. Section text.</P>"
+        "<HD1>Appendix D—Multiple-Advance Construction Loans</HD1><P>1. <I>General.</I> Appendix text.</P>"
+        "<HD1>Appendices G and H—Open-End and Closed-End Model Forms and Clauses</HD1><P>1. Forms.</P>"
+        "<HD1>Appendix K—Total Annual Loan Cost Rate Computations</HD1>"
+        "<HD3>(b)(9) Assumption for discretionary cash advances</HD3><P>1. Cash advances.</P>"
+        "<HD2>Section 1026.63—Next</HD2><HD3>63(a) X</HD3><P>1. Back to sections.</P>"
+    )
+    assert [b.citation for b in blocks] == [
+        "Comment 62(a)-1", "Comment app. D-1", "Comment app. G and H-1",
+        "Comment app. K(b)(9)-1", "Comment 63(a)-1",
+    ]
+    assert blocks[1].heading == "Multiple-Advance Construction Loans"
+
+
+def test_uppercase_siblings_do_not_nest_without_a_roman_level():
+    blocks = _commentary("<HD3>2(a) X</HD3><P>1. Examples:</P><P>A. First.</P><P>B. Second.</P>")
+    assert [b.citation for b in blocks] == ["Comment 2(a)-1", "Comment 2(a)-1.A", "Comment 2(a)-1.B"]
+
+
+def test_italic_numerals_are_the_fourth_level_not_new_comments():
+    # Live comment 3(b)-4: '<I>1.</I>' under 'A.' used to restart as comment 1 (duplicate citations).
+    blocks = _commentary(
+        "<HD3>3(b) Threshold</HD3><P>1. <I>Threshold amount.</I> Text.</P><P>4. <I>Open-end credit.</I></P>"
+        "<P>iv. <I>Firm commitment.</I></P><P>A. <I>General.</I> Text.</P>"
+        "<P><I>1.</I> Assume one.</P><P><I>2.</I> Assume two.</P><P>B. Next.</P><P>5. Five.</P>"
+    )
+    assert [b.citation for b in blocks] == [
+        "Comment 3(b)-1", "Comment 3(b)-4", "Comment 3(b)-4.iv", "Comment 3(b)-4.iv.A",
+        "Comment 3(b)-4.iv.A.1", "Comment 3(b)-4.iv.A.2", "Comment 3(b)-4.iv.B", "Comment 3(b)-5",
+    ]
+    assert blocks[4].text == "Assume one."
+
+
+def test_packed_comment_levels_are_split():
+    # Live comment 1(d)(5)-1: '1. <I>Effective date.</I> i. <I>General.</I> ...' holds -1 and -1.i.
+    blocks = _commentary(
+        "<HD3>1(d)(5) Effective date</HD3>"
+        "<P>1. <I>Effective date.</I> i. <I>General.</I> The revisions apply.</P><P>ii. Second.</P>"
+        "<P>2. <I>Private mortgage insurance.</I> i. <I>Payable after.</I> Text. ii. Not a split.</P>"
+        "<P>3. <I>Reasonable determination. i. General.</I> One italic run spans both.</P>"
+    )
+    got = [(b.citation, b.text) for b in blocks]
+    assert got == [
+        ("Comment 1(d)(5)-1", "Effective date."),
+        ("Comment 1(d)(5)-1.i", "General. The revisions apply."),
+        ("Comment 1(d)(5)-1.ii", "Second."),
+        ("Comment 1(d)(5)-2", "Private mortgage insurance."),
+        ("Comment 1(d)(5)-2.i", "Payable after. Text. ii. Not a split."),
+        ("Comment 1(d)(5)-3", "Reasonable determination."),
+        ("Comment 1(d)(5)-3.i", "General. One italic run spans both."),
+    ]
+
+
+def test_sentence_with_capital_letter_marker_is_not_split():
+    blocks = _commentary("<HD3>5(b) X</HD3><P>1. <I>Scope.</I> See appendix. A. Smith applies.</P>")
+    assert [b.citation for b in blocks] == ["Comment 5(b)-1"]

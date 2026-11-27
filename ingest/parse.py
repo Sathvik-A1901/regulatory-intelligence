@@ -182,70 +182,145 @@ def parse_section(unit: etree._Element, identifier: str) -> list[Block]:
 
 SECTION_HEAD_RE = re.compile(r"Section\s+(\d+)\.(\d+[a-z]?)")
 PARA_HEAD_RE = re.compile(r"^(?:Paragraphs?\s+)?(\d+[a-z]?)((?:\([^)\s]{1,6}\))+)")
+# 'Appendix K—Total Annual Loan Cost Rate ...', 'Appendices G and H—Open-End and Closed-End ...'
+APPENDIX_HEAD_RE = re.compile(r"^Appendi(?:x|ces)\s+([A-Z](?:-\d+)?(?:\s+(?:and|through)\s+[A-Z](?:-\d+)?)?)(?=\W|$)")
+# Paragraph headings inside appendix commentary: '(b)(9) Assumption for discretionary cash advances'
+APPENDIX_PARA_RE = re.compile(r"^((?:\([^)\s]{1,6}\))+)(?=\s|$)")
+
+# Comment levels, outermost first: 1. / i. / A. / italic 1. (e.g. comment 3(b)-4.iv.A.1)
+DIGIT, ROMAN_L, UPPER, IT_DIGIT = 0, 1, 2, 3
 COMMENT_RE = [
-    re.compile(r"^(\d{1,3})\.\s+"),  # 1.
-    re.compile(r"^([ivx]{1,6})\.\s+"),  # i.
-    re.compile(r"^([A-Z])\.\s+"),  # A.
-    re.compile(r"^" + ITALIC + r"?(\d{1,2})\.\s+"),  # italic 1.
+    (DIGIT, re.compile(r"^(\d{1,3})\.\s+")),
+    (ROMAN_L, re.compile(r"^([ivx]{1,6})\.\s+")),
+    (UPPER, re.compile(r"^([A-Z])\.\s+")),
 ]
+# Italic numerals arrive wrapped in emphasis sentinels: <I>1.</I> -> '‡1.‡'
+IT_DIGIT_RE = re.compile(r"^" + EMPH + r"(\d{1,2})\.\s*" + EMPH + r"\s*")
+
+
+def _comment_marker(raw: str) -> tuple[int, str, str] | None:
+    """(level, token, body) for a paragraph that opens a comment, else None.
+
+    `raw` still carries the emphasis sentinels, which is the only way to tell the
+    italic fourth level ('<I>1.</I>') from a new top-level comment ('1.').
+    """
+    m = IT_DIGIT_RE.match(raw)
+    if m:
+        return IT_DIGIT, m.group(1), raw[m.end():]
+    for level, rx in COMMENT_RE:
+        m = rx.match(raw)
+        if m:
+            return level, m.group(1), raw[m.end():]
+    return None
+
+
+FIRST_OF_LEVEL = {ROMAN_L: "i", UPPER: "A", IT_DIGIT: "1"}
+LEAD_HEADING_RE = re.compile(EMPH + r"([^" + EMPH + r"]{1,200}[.:])" + EMPH + r"\s+")
+MERGED_HEADING_RE = re.compile(
+    r"^" + EMPH + r"([^" + EMPH + r"]{1,200}?[.:])\s+(i|A)\.\s+([^" + EMPH + r"]{1,200}[.:])" + EMPH)
+
+
+def comment_markers(raw: str) -> tuple[list[tuple[int, str, str | None]], str]:
+    """All comment markers that open a paragraph, and the body after the last one.
+
+    eCFR packs levels the same way it does in regulation text:
+    '1. ‡Effective date.‡ i. ‡General.‡ The Bureau's revisions ...' is comment -1
+    (heading 'Effective date.') with comment -1.i inside it. A split happens only when
+    an italic heading is followed by the first marker of the next level down, so
+    ordinary sentences such as 'See comment A. above' are never cut.
+    """
+    first = _comment_marker(raw)
+    if first is None:
+        return [], strip_sentinels(raw)
+    level, tok, rest = first
+    found: list[tuple[int, str, str | None]] = []
+    while True:
+        # One italic run can span both headings: '‡Reasonable ... determination. i. General.‡'
+        rest = MERGED_HEADING_RE.sub(EMPH + r"\1" + EMPH + r" \2. " + EMPH + r"\3" + EMPH, rest, count=1)
+        h = LEAD_HEADING_RE.match(rest)
+        nxt = _comment_marker(rest[h.end():]) if h else None
+        if h and nxt and nxt[0] == level + 1 and nxt[1] == FIRST_OF_LEVEL.get(nxt[0]):
+            found.append((level, tok, strip_sentinels(h.group(1)).strip()))
+            level, tok, rest = nxt
+            continue
+        found.append((level, tok, None))
+        return found, strip_sentinels(rest)
 
 
 def parse_commentary(unit: etree._Element, identifier: str) -> list[Block]:
     blocks: list[Block] = []
-    anchor: str | None = None  # '19(e)(1)(iii)' or '19'
+    anchor: str | None = None  # '19(e)(1)(iii)', '19', 'I' (introduction) or 'app. K(b)(9)'
     anchor_heading: str | None = None
-    comment: list[str] = []
+    appendix: str | None = None  # set while inside the commentary to an appendix
+    stack: list[tuple[int, str]] = []  # open comment levels, outermost first
 
     def cite() -> str:
         base = f"Comment {anchor}" if anchor else identifier
-        if not comment:
+        if not stack:
             return base
-        return f"{base}-{comment[0]}" + "".join(f".{c}" for c in comment[1:])
+        toks = [t for _, t in stack]
+        return f"{base}-{toks[0]}" + "".join(f".{t}" for t in toks[1:])
+
+    def set_anchor(a: str, heading: str | None) -> None:
+        nonlocal anchor, anchor_heading
+        anchor, anchor_heading = a, heading or None
+        stack.clear()
 
     for el in _walk(unit):
         if el.tag in TABLE_TAGS:
             md = table_to_markdown(el)
             if md:
-                blocks.append(Block(path=list(comment), citation=cite(), text=md, is_table=True,
+                blocks.append(Block(path=[t for _, t in stack], citation=cite(), text=md, is_table=True,
                                     heading=anchor_heading))
             continue
         if el.tag in GRAPHIC_TAGS:
             continue
-        text = strip_sentinels(element_text(el))
+        raw = element_text(el)
+        text = strip_sentinels(raw)
         if not text:
             continue
 
-        if el.tag in HEADING_TAGS or (el.tag == "P" and len(text) < 160 and
-                                      (SECTION_HEAD_RE.match(text) or PARA_HEAD_RE.match(text))
-                                      and not COMMENT_RE[0].match(text)):
+        is_heading = el.tag in HEADING_TAGS
+        if is_heading or (el.tag == "P" and len(text) < 160 and
+                          (SECTION_HEAD_RE.match(text) or PARA_HEAD_RE.match(text))
+                          and _comment_marker(raw) is None):
+            a = APPENDIX_HEAD_RE.match(text) if is_heading else None
             s = SECTION_HEAD_RE.search(text)
             p = PARA_HEAD_RE.match(text)
-            if p:
-                anchor = p.group(1) + p.group(2)
-                anchor_heading = clean_heading(text[p.end():]) or None
-                comment = []
+            ap = APPENDIX_PARA_RE.match(text) if (is_heading and appendix) else None
+            if text.strip().lower() == "introduction":
+                appendix = None
+                set_anchor("I", None)  # cited as comment I-1 .. I-4
+            elif a:
+                appendix = "app. " + a.group(1)
+                set_anchor(appendix, clean_heading(text[a.end():]))
+            elif ap:
+                set_anchor(appendix + ap.group(1), clean_heading(text[ap.end():]))
+            elif p:
+                appendix = None
+                set_anchor(p.group(1) + p.group(2), clean_heading(text[p.end():]))
             elif s:
-                anchor = s.group(2) if "." in s.group(0) else s.group(1)
-                anchor_heading = clean_heading(text[s.end():]) or None
-                comment = []
+                appendix = None
+                set_anchor(s.group(2), clean_heading(text[s.end():]))
+            # Other headings (subpart titles, date captions) leave the anchor alone.
             continue
 
-        level, tok, body = None, None, text
-        for i, rx in enumerate(COMMENT_RE):
-            m = rx.match(text)
-            if m:
-                # 'i.' after 'h.' never happens here: commentary has no lowercase-letter level.
-                level, tok, body = i, m.group(1), text[m.end():]
-                break
-        if level is None:
+        markers, body = comment_markers(raw)
+        if not markers:
             if blocks:
                 blocks[-1].text += "\n" + text
             else:
                 blocks.append(Block(path=[], citation=cite(), text=text, heading=anchor_heading))
             continue
-        comment = comment[:level] + [tok]
-        blocks.append(Block(path=list(comment), citation=cite(), text=body.strip(),
-                            heading=anchor_heading))
+        for i, (level, tok, packed_heading) in enumerate(markers):
+            while stack and stack[-1][0] >= level:
+                stack.pop()
+            stack.append((level, tok))
+            last = i == len(markers) - 1
+            # A packed parent keeps its own heading as its text ('Effective date.').
+            blocks.append(Block(path=[t for _, t in stack], citation=cite(),
+                                text=body.strip() if last else (packed_heading or ""),
+                                heading=anchor_heading))
     return blocks
 
 
