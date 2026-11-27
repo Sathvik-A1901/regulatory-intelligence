@@ -1,0 +1,26 @@
+name: evals
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test-and-eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install
+        run: pip install -e ".[dev]"
+      - name: Lint
+        run: ruff check .
+      - name: Unit tests (parser, versioning, entitlement gate)
+        run: pytest -q
+      - name: Retrieval eval, smoke corpus
+        # Gate is strict on the smoke set: these items are verified and must always pass.
+        # The full-corpus gate on golden.yaml is added once items there are verified.
+        run: python -m evals.run_suite --smoke --min-recall 1.0

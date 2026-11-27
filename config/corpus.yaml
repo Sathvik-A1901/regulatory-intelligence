@@ -1,0 +1,15 @@
+# What to ingest. Keep the corpus narrow and real: three CFPB regulations,
+# every version in force since the eCFR point-in-time window opens (2017-01-03).
+since: "2017-01-03"
+regulator: CFPB
+jurisdiction: US-federal
+parts:
+  - title: 12
+    part: "1026"
+    name: Regulation Z (Truth in Lending)
+  - title: 12
+    part: "1002"
+    name: Regulation B (Equal Credit Opportunity)
+  - title: 12
+    part: "1005"
+    name: Regulation E (Electronic Fund Transfers)

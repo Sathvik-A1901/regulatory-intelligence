@@ -1,0 +1,27 @@
+# Smoke set for CI: runs against the fixture corpus in tests/fixtures, so it needs
+# no network and no ingested data. It proves the harness and the as-of filter work;
+# it says nothing about real retrieval quality. That is what golden.yaml is for.
+
+- id: smoke-qm-dti-2019
+  question: qualified mortgage debt-to-income ratio limit
+  as_of: 2019-06-01
+  expected_citations: ["1026.43(e)(2)(vi)"]
+  status: verified
+
+- id: smoke-qm-pricing-2023
+  question: qualified mortgage annual percentage rate average prime offer rate limit
+  as_of: 2023-06-01
+  expected_citations: ["1026.43(e)(2)(vi)"]
+  status: verified
+
+- id: smoke-loan-estimate-timing
+  question: third business day after the creditor receives the application
+  as_of: 2024-06-01
+  expected_citations: ["1026.19(e)(1)(iii)"]
+  status: verified
+
+- id: smoke-abstain
+  question: deposit insurance limit
+  as_of: 2024-06-01
+  should_abstain: true
+  status: verified

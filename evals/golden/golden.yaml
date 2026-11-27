@@ -1,0 +1,158 @@
+# Golden set: question, as-of date, asker's role, the citations a correct answer
+# must rest on, and whether the system should refuse.
+#
+# STATUS: every item below is a DRAFT seed written to exercise the harness. None is
+# verified. Before an item counts toward a published number, open the cited text in
+# the eCFR on the as-of date, confirm the citation, and change status to `verified`.
+# Target: ~200 verified items (Phase 3). Keep drafts out of the README scorecard.
+#
+# Citation matching: an expected citation is satisfied by a retrieved chunk with the
+# same citation or a descendant of it (1026.19(e)(1) is satisfied by 1026.19(e)(1)(iii)).
+
+- id: regz-le-timing
+  question: How soon after receiving a mortgage application must the creditor deliver the Loan Estimate?
+  as_of: 2024-06-01
+  role: public
+  expected_citations: ["1026.19(e)(1)(iii)"]
+  answer_points: ["no later than the third business day after the creditor receives the application"]
+  should_abstain: false
+  status: draft
+
+- id: regz-cd-timing
+  question: When must the consumer receive the Closing Disclosure relative to consummation?
+  as_of: 2024-06-01
+  role: public
+  expected_citations: ["1026.19(f)(1)(ii)"]
+  answer_points: ["at least three business days before consummation"]
+  should_abstain: false
+  status: draft
+
+- id: regz-rescission-period
+  question: How long does a consumer have to rescind a credit transaction secured by their principal dwelling?
+  as_of: 2024-06-01
+  role: public
+  expected_citations: ["1026.23(a)(3)"]
+  answer_points: ["until midnight of the third business day after the latest of consummation, delivery of the notice, or delivery of material disclosures"]
+  should_abstain: false
+  status: draft
+
+- id: regz-atr-factors
+  question: What factors must a creditor consider when making an ability-to-repay determination for a residential mortgage?
+  as_of: 2024-06-01
+  role: public
+  expected_citations: ["1026.43(c)(2)"]
+  answer_points: ["income or assets", "employment status", "monthly payment", "simultaneous loans", "mortgage-related obligations", "current debt obligations", "debt-to-income ratio or residual income", "credit history"]
+  should_abstain: false
+  status: draft
+
+# An as-of pair: the general QM definition changed from a 43% DTI cap to a pricing test.
+- id: regz-general-qm-2019
+  question: Under the general qualified mortgage definition, what limit applies to the consumer's debt-to-income ratio?
+  as_of: 2019-06-01
+  role: public
+  expected_citations: ["1026.43(e)(2)(vi)"]
+  answer_points: ["total monthly debt to total monthly income may not exceed 43 percent"]
+  should_abstain: false
+  status: draft
+
+- id: regz-general-qm-2023
+  question: Under the general qualified mortgage definition, what pricing limit applies to the annual percentage rate?
+  as_of: 2023-06-01
+  role: public
+  expected_citations: ["1026.43(e)(2)(vi)"]
+  answer_points: ["APR may not exceed APOR by 2.25 or more percentage points for a first-lien loan of the base amount, with higher thresholds for smaller loans"]
+  should_abstain: false
+  status: draft
+
+- id: regz-hpml-escrow
+  question: For how long must escrow accounts be maintained on a higher-priced mortgage loan?
+  as_of: 2024-06-01
+  role: public
+  expected_citations: ["1026.35(b)(3)"]
+  answer_points: ["a minimum of five years after consummation, subject to conditions for cancellation"]
+  should_abstain: false
+  status: draft
+
+- id: regz-finance-charge-insurance
+  question: When can premiums for credit life insurance be excluded from the finance charge?
+  as_of: 2024-06-01
+  role: public
+  expected_citations: ["1026.4(d)(1)"]
+  answer_points: ["insurance not required", "disclosed in writing", "consumer signs or initials an affirmative written request after receiving the disclosures"]
+  should_abstain: false
+  status: draft
+
+- id: rege-unauthorized-liability
+  question: What is a consumer's maximum liability for unauthorized electronic fund transfers if they notify the bank within two business days of learning their debit card was lost?
+  as_of: 2024-06-01
+  role: public
+  expected_citations: ["1005.6(b)(1)"]
+  answer_points: ["the lesser of $50 or the amount of unauthorized transfers before notice"]
+  should_abstain: false
+  status: draft
+
+- id: rege-error-investigation
+  question: How long does a financial institution have to investigate a consumer's notice of error on an electronic fund transfer?
+  as_of: 2024-06-01
+  role: public
+  expected_citations: ["1005.11(c)(1)", "1005.11(c)(2)"]
+  answer_points: ["10 business days", "up to 45 days if the account is provisionally credited"]
+  should_abstain: false
+  status: draft
+
+- id: regb-adverse-action-timing
+  question: Within how many days must a creditor notify an applicant of action taken on a completed credit application?
+  as_of: 2024-06-01
+  role: public
+  expected_citations: ["1002.9(a)(1)(i)"]
+  answer_points: ["30 days after receiving a completed application"]
+  should_abstain: false
+  status: draft
+
+- id: regb-statement-of-reasons
+  question: What must a statement of specific reasons for adverse action contain?
+  as_of: 2024-06-01
+  role: public
+  expected_citations: ["1002.9(b)(2)"]
+  answer_points: ["specific principal reasons", "insufficient to say the applicant failed to meet internal standards"]
+  should_abstain: false
+  status: draft
+
+# An as-of pair that also tests abstention: the small business lending rule
+# (Regulation B subpart B) did not exist in mid-2022.
+- id: regb-1071-before
+  question: Which financial institutions must collect and report small business lending data under Regulation B?
+  as_of: 2022-06-01
+  role: public
+  expected_citations: []
+  answer_points: ["no such requirement was in force on this date"]
+  should_abstain: true
+  status: draft
+
+- id: regb-1071-after
+  question: Which financial institutions must collect and report small business lending data under Regulation B?
+  as_of: 2024-06-01
+  role: public
+  expected_citations: ["1002.105(b)"]
+  answer_points: ["covered financial institution defined by an origination threshold over the two preceding calendar years"]
+  should_abstain: false
+  status: draft
+
+# Out-of-corpus: the right answer is a refusal that names what is missing.
+- id: oos-deposit-insurance
+  question: What is the standard maximum deposit insurance amount per depositor?
+  as_of: 2024-06-01
+  role: public
+  expected_citations: []
+  answer_points: ["FDIC deposit insurance rules (12 CFR Part 330) are not in the corpus"]
+  should_abstain: true
+  status: draft
+
+- id: oos-reg-bi
+  question: What are a broker-dealer's disclosure obligations under Regulation Best Interest?
+  as_of: 2024-06-01
+  role: public
+  expected_citations: []
+  answer_points: ["SEC rules are not in the corpus"]
+  should_abstain: true
+  status: draft

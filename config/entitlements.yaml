@@ -1,0 +1,18 @@
+# Synthetic entitlement model. No public corpus ships with access-control
+# lists, so this mapping is invented for the project and versioned here so the
+# red-team suite (Phase 3) has something stable to test against.
+#
+# Entitlements attach to document classes, never to individual chunks.
+roles:
+  public: [public]
+  analyst: [public, internal]
+  compliance_reviewer: [public, internal, restricted]
+  supervisor: [public, internal, restricted, supervisory]
+
+# Default class per document kind. Federal regulation text is public;
+# the SOPs written for this project are assigned per file in their front matter.
+defaults:
+  regulation: public
+  appendix: public
+  interpretation: public
+  sop: internal
