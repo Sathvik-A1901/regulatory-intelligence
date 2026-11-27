@@ -25,15 +25,26 @@ LLM for later phases: Anthropic API (not used yet).
 - evals/: harness.py (recall@k, MRR, stale-rate with/without as-of filter),
   run_suite.py (`--smoke` for CI, `--min-recall` gate), golden/golden.yaml (16 DRAFT
   items, none verified), golden/smoke.yaml (CI)
-- .github/workflows/evals.yml: ruff, pytest (25 tests), smoke eval gate
+- .github/workflows/evals.yml: ruff, pytest (28 tests), smoke eval gate
 
-## Not yet verified
-- Never run against live eCFR. Parser tested only on abridged fixtures in tests/fixtures/.
-- Golden set citations must be hand-checked in eCFR before any number is published.
+## First live run (2026-11-26): 1026.19 + 1026.43
+- `python -m ingest.flow --only 1026.19 --only 1026.43`: 15 versions, 18 fetches, 0 failures,
+  441 chunks (401 in force today). Every marked <P> in every version maps to exactly one
+  block, no duplicate citations.
+- Two parser bugs found on real XML and fixed (regression tests in tests/test_parse.py):
+  1. Defined terms "(1) <I>Covered transaction</I> means ..." were stripped as headings;
+     body now keeps the term (heading still recorded for the breadcrumb).
+  2. Pre-2022 versions write the heading dash as ASCII " - " not "—", which broke packed
+     markers ((c)(5)(A) instead of (c)(5)(i)(A)) and created ~190 spurious supersessions
+     on non-substantive version dates. Chunk count fell 631 -> 441 after the fix.
+- Not yet run: Supplement I and appendices on live XML, Regs B and E.
+- Observed: very short list-item chunks ("Prepaid interest;") exist; consider merging
+  into parent at index time if they hurt retrieval.
+- Golden set citations must still be hand-checked in eCFR before any number is published.
 
 ## Next steps
-1. First live run: `python -m ingest.flow --only 1026.19 --only 1026.43`; fix parser
-   issues found on real XML; inspect parse_report.json.
+1. Live run on Supplement I to Part 1026 and one appendix (commentary parser is the
+   least tested path), then all of Reg Z.
 2. Week 2: full ingestion + published parse-quality report.
 3. Week 3: dense (pgvector) + BM25 (OpenSearch) hybrid with RRF, cross-encoder rerank,
    ablation table. Keep every retriever taking a RetrievalFilter.

@@ -12,7 +12,7 @@ Between 40% and 60% of enterprise RAG projects never reach production, and the r
 
 | Week | Deliverable | State |
 |---|---|---|
-| 1 | Corpus ingestion, eval skeleton in CI | **Built.** Ingestion is tested on fixtures; first live run pending |
+| 1 | Corpus ingestion, eval skeleton in CI | **Built.** First live run done on 1026.19 and 1026.43 (15 versions, 0 failures) |
 | 2 | Structure-aware parsing and chunking, parse-quality report | Parser built; report published after the first live run |
 | 3 | Hybrid retrieval and reranking, ablation table | BM25 baseline only |
 | 4 | Version-aware retrieval | As-of filtering built and tested on fixtures |

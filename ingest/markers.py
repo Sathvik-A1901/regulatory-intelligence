@@ -131,7 +131,10 @@ class MarkerStack:
 EMPH = "‡"  # sentinel the XML layer wraps around italic runs: <I>Timing.</I> -> ‡Timing.‡
 
 MARKER_RE = re.compile(r"\s*\((" + ITALIC + r"?)([a-zA-Z]{1,5}|\d{1,3})\)")
-HEADING_RE = re.compile(r"\s*" + EMPH + r"([^" + EMPH + r"]{1,200})" + EMPH + r"\s*—?")
+# The dash after a heading is an em dash in current eCFR XML but a spaced ASCII
+# hyphen (' - ') or double hyphen in older point-in-time versions.
+DASH = r"(?:[—–]|-{1,2}(?=\s|\())"
+HEADING_RE = re.compile(r"\s*" + EMPH + r"([^" + EMPH + r"]{1,200})" + EMPH + r"(\s*" + DASH + r")?")
 
 
 def clean_heading(h: str) -> str:
@@ -161,8 +164,17 @@ def split_leading_markers(text: str) -> list[tuple[str, bool, str | None, int, i
         start, pos = m.start(), m.end()
         heading = None
         h = HEADING_RE.match(text, pos)
+        defined_term = False
         if h:
             heading = clean_heading(h.group(1))
-            pos = h.end()
+            # '(4) ‡Higher-priced covered transaction‡ means ...' is a definition, not a
+            # heading: no closing period or dash, and the sentence runs on in lowercase.
+            # The term stays in the body text so the chunk still says what it defines.
+            defined_term = (h.group(2) is None and not h.group(1).rstrip().endswith((".", ":", "?"))
+                            and re.match(r"\s*[a-z]", text[h.end():]) is not None)
+            if not defined_term:
+                pos = h.end()
         found.append((tok, italic, heading or None, start, pos))
+        if defined_term:
+            break
     return found

@@ -89,3 +89,40 @@ def test_commentary_citations():
         "Comment 19(e)(1)(iii)-2",
     ]
     assert blocks[0].heading == "Certain Mortgage and Variable-Rate Transactions"
+
+
+# ---------------------------------------------------------------- regressions from the first live eCFR run
+
+def _section(body: str, ident: str = "1026.43"):
+    xml = f'<DIV8 N="{ident}" TYPE="SECTION"><HEAD>§ {ident} Test.</HEAD>{body}</DIV8>'
+    return parse_unit(xml, ident, "section")[2]
+
+
+def test_defined_term_stays_in_body():
+    # Live 1026.43(b): the italic run is the defined term, not a heading to strip.
+    blocks = _section(
+        "<P>(b) <I>Definitions.</I> For purposes of this section:</P>"
+        "<P>(1) <I>Covered transaction</I> means a consumer credit transaction secured by a dwelling.</P>"
+        "<P>(2) <I>Fully amortizing payment</I> means a periodic payment of principal and interest.</P>"
+    )
+    b1 = next(b for b in blocks if b.citation == "1026.43(b)(1)")
+    assert b1.text.startswith("Covered transaction means")
+    assert b1.heading == "Covered transaction"
+    assert next(b for b in blocks if b.citation == "1026.43(b)").heading == "Definitions"
+
+
+def test_ascii_hyphen_heading_dash_in_older_versions():
+    # Pre-2022 eCFR versions write 'Payment calculation - (i)' where current XML has an em dash.
+    old = _section("<P>(c) <I>Repayment ability</I> - (5) <I>Payment calculation</I> - (i) "
+                   "<I>General rule.</I> A creditor must make the calculation.</P>"
+                   "<P>(A) The fully indexed rate.</P>")
+    new = _section("<P>(c) <I>Repayment ability</I>—(5) <I>Payment calculation</I>—(i) "
+                   "<I>General rule.</I> A creditor must make the calculation.</P>"
+                   "<P>(A) The fully indexed rate.</P>")
+    assert [(b.citation, b.text) for b in old] == [(b.citation, b.text) for b in new]
+    assert [b.citation for b in old] == ["1026.43(c)(5)(i)", "1026.43(c)(5)(i)(A)"]
+
+
+def test_hyphen_inside_body_is_not_a_heading_dash():
+    blocks = _section("<P>(a) <I>Scope.</I> This applies to a non-recourse loan.</P>")
+    assert blocks[0].text == "This applies to a non-recourse loan."
